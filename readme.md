@@ -1,105 +1,173 @@
-# A Multi-Sector Stock Price Predictive Model
+# Stock Price Predictor
 
-![Python](https://img.shields.io/badge/python-3.12-blue?logo=python)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Build](https://img.shields.io/badge/build-passing-brightgreen)
+An end-to-end system that predicts stock price movements by combining technical analysis with live sentiment data from news. This deep-learning-based tool forecasts trends for major Indian stocks, delivering actionable insights for investors and analysts.
 
 ---
 
-## Overview
-This project is a **powerful predictive model** designed to analyze and forecast key financial metrics across major economic sectors. By leveraging advanced **machine learning models** trained on historical data, this system provides actionable insights for each designated sector.  
+## 🚀 Overview
 
-The core innovation of this project lies in its **automated daily prediction engine** and the integration of **live market sentiment**, providing a comprehensive, data-driven tool for strategic market analysis and decision-making.
+This project features:
 
----
-
-## Key Features
-
-- **Automated Daily Predictions**  
-  Uses a background scheduler (`apscheduler`) to automatically fetch data and generate **next-day stock price predictions** for all tracked stocks every day at **4:00 PM IST**.
-
-- **Performance-Optimized Caching**  
-  Daily predictions are cached in memory to ensure **fast, low-latency API responses**.
-
-- **Live Sentiment Analysis**  
-  Incorporates a live sentiment score for each stock, derived from recent news articles using the **VADER sentiment analysis tool**.
-
-- **Top Stock Ranking**  
-  Provides a **top 5 stock ranking** based on a custom metric:  
-Score = Predicted Return / Volatility
-
-- **On-Demand Predictions**  
-Users can request **real-time, single-stock predictions** with historical price data for immediate analysis.
-
-- **Modular Architecture**  
-Clear separation of concerns with **dedicated directories** for models, scalers, and scripts, making it scalable and easy to maintain.
+- **Automated Daily Predictions**: A background scheduler (apscheduler) fetches data and generates next-day predictions for tracked stocks daily at 4:00 PM IST.
+- **Performance-Optimized Caching**: Predictions are cached in memory for fast, low-latency API responses.
+- **Live Sentiment Analysis**: Integrates real-time sentiment scores derived from recent news using the VADER sentiment tool.
+- **Top Stock Ranking**: Ranks stocks using a custom metric:  
+  **Score = Predicted Return / Volatility**
+- **On-Demand Predictions**: Request real-time, single-stock predictions with historical data.
+- **Modular Architecture**: Organized structure with dedicated directories for models, scalers, and scripts for scalability and maintainability.
 
 ---
 
-## Methodology and Implementation
+## 📊 Methodology & Implementation
 
-### Data and Preprocessing
-- Historical stock data is fetched from **yfinance**.  
-- Technical indicators such as **SMA** and **RSI** are generated using **pandas_ta**.  
-- Sentiment data is sourced from a **news API**, processed in `sentimentFinal.ipynb`, and used to enhance model predictions.
+### Data Collection & Preprocessing
+- Historical data from **yfinance**
+- Technical indicators (e.g., SMA, RSI) via **pandas_ta**
+- Sentiment data processed in `sentimentFinal.ipynb`, using news APIs and VADER
 
 ### Model Architecture
-- **Multi-model architecture**: Each economic sector has a specialized **Keras model**.  
-- Models are stored in the `models/` directory; corresponding scalers are stored in `scalers/`.  
-- Core logic for model loading and prediction execution resides in `models.py` and `prediction.py`.  
-- **Backtesting** is implemented in `backtest.py` to evaluate historical performance.  
-- **Scheduler** (`scheduler.py`) manages automated daily predictions.
+- Sector-specific Keras models saved in `models/`; scalers in `scalers/`
+- Key modules:
+  - `models.py` & `prediction.py`: model loading and prediction logic
+  - `backtest.py`: historical model performance evaluation
+  - `scheduler.py`: manages automated daily predictions
+  - `utils.py`: helper utilities (data fetch, feature engineering, sentiment helpers)
 
 ---
 
-## Project Structure
-.
-├── .vscode/ # VS Code configuration files
-├── models/ # Directory for trained Keras model files
-├── scalers/ # Directory for saved data scaler files
-├── venv/ # Python virtual environment
-├── .env # Environment variables (API keys, etc.)
-├── .gitignore # Git ignore file
-├── app.py # Main application with API endpoints
-├── backtest.py # Script for backtesting models
-├── index.html # Web interface (optional)
-├── models.py # Model-related utility functions
-├── prediction.py # Core prediction logic
-├── readme.md # Project documentation
-├── requirements.txt # Python dependencies
-├── scheduler.py # Daily prediction scheduler script
-├── sentimentFinal.ipynb# Jupyter notebook for sentiment analysis exploration
-└── utils.py # Utility functions
+## 📂 Project Structure
+
+    ├── models/               # Trained Keras model files
+    ├── scalers/              # Scaler files
+    ├── .gitignore
+    ├── app.py                # Flask API endpoints & server
+    ├── backtest.py           # Historical performance testing
+    ├── index.html            # Optional web interface
+    ├── models.py             # Utility functions for models
+    ├── prediction.py         # Prediction operations
+    ├── README.md             # Project documentation
+    ├── requirements.txt      # Python dependencies
+    ├── scheduler.py          # Scheduler for daily predictions
+    ├── sentimentFinal.ipynb  # Sentiment analysis notebook
+    └── utils.py              # Helper utilities
 
 ---
 
-## Installation & Usage
+## ⚙️ Installation & Usage
 
-### 1. Clone the Repository
-```bash
-git clone [repository_url]
-cd [project_folder_name]
-2. Install Dependencies
-It is recommended to use a virtual environment:
-python -m venv venv
-source venv/bin/activate   # Linux/macOS
-venv\Scripts\activate      # Windows
+### 1. Clone the repository
 
-pip install -r requirements.txt
-3. Run the Application
-python app.py
-The application will start a Flask server with API endpoints for predictions and top-stock ranking.
-Future Enhancements
-Real-Time Data Integration: Incorporate APIs to provide live, up-to-the-minute predictions.
-Web Interface: User-friendly front-end to visualize predictions, top stocks, and historical performance.
-Model Optimization: Explore more advanced architectures (e.g., Transformers, hybrid LSTM-CNN) for improved performance.
-Extended Sector Coverage: Add additional economic sectors and stocks for broader market insights.
-API Endpoints
-Endpoint	Method	Description
-/daily-predictions	GET	Returns cached predictions for all stocks.
-/top-stocks	GET	Returns the top 5 stocks by risk-adjusted score.
-/predict	POST	Returns a single-stock prediction given historical data.
-/backtest	POST	Performs a backtest for a specified sector and date range.
-/config	GET	Returns current system configuration and available sectors.
-Contact
-For questions or suggestions, please contact [Your Name] at [Your Email Address].
+    git clone https://github.com/AbhinavNeema/Stock_Price_Predictor.git
+    cd Stock_Price_Predictor
+
+### 2. Set up virtual environment and install dependencies
+
+    python -m venv venv
+    # On Linux/macOS:
+    source venv/bin/activate
+    # On Windows:
+    venv\Scripts\activate
+    pip install -r requirements.txt
+
+### 3. Configure environment variables
+Create a `.env` file at the project root and add required keys (example):
+
+    NEWS_API_KEY=your_news_api_key_here
+    OTHER_SECRET=your_other_secret_here
+
+> **Security note:** Do not commit `.env` or any secrets to the repo. Add `.env` to `.gitignore`.
+
+### 4. Run the application
+
+    # ensure virtualenv is activated
+    python app.py
+
+The Flask server will start (default: `http://127.0.0.1:5001` or as configured) and expose the API endpoints listed below.
+
+---
+
+## 🔗 API Endpoints
+
+| Endpoint              | Method | Description                                                  |
+|-----------------------|--------|--------------------------------------------------------------|
+| `/daily-predictions`  | GET    | Returns cached daily predictions for all tracked stocks      |
+| `/top-stocks`         | GET    | Returns top 5 stocks based on risk-adjusted ranking         |
+| `/predict`            | POST   | Generates real-time prediction for a single stock           |
+| `/backtest`           | POST   | Runs backtest for a chosen sector over a selected timeframe |
+| `/config`             | GET    | Retrieves current config and available sectors              |
+
+### Example: `/predict` request (HTTP)
+
+    POST /predict
+    Content-Type: application/json
+
+    {
+      "ticker": "TCS.NS",
+      "start_date": "2024-01-01",
+      "end_date": "2024-12-31",
+      "window": 60
+    }
+
+### Example: `/predict` response (JSON)
+
+    {
+      "ticker": "TCS.NS",
+      "predicted_return": 1.5,
+      "predicted_price": 3420.25,
+      "volatility": 12.5,
+      "score": 0.12,
+      "timestamp": "2025-08-29T16:00:00+05:30"
+    }
+
+### Example: `/top-stocks` response (JSON)
+
+    [
+      {"ticker": "TCS.NS", "score": 0.12, "predicted_return": 1.5, "volatility": 12.5},
+      {"ticker": "HDFCBANK.NS", "score": 0.09, "predicted_return": 1.2, "volatility": 13.3},
+      {"ticker": "INFY.NS", "score": 0.08, "predicted_return": 1.1, "volatility": 13.8},
+      {"ticker": "HINDUNILVR.NS", "score": 0.06, "predicted_return": 0.9, "volatility": 15.0},
+      {"ticker": "SUNPHARMA.NS", "score": 0.05, "predicted_return": 0.8, "volatility": 16.0}
+    ]
+
+---
+
+## 📈 Backtesting
+
+Run historical evaluation using `backtest.py`:
+
+    python backtest.py --sector IT --start 2020-01-01 --end 2024-01-01 --window 60
+
+Adjust `--window` (walk-forward window), `--max_points`, and other flags as implemented in the script.
+
+**Notes on backtesting:**
+- Uses walk-forward evaluation (`run_backtest_for_sector(config, start_date, end_date, window=60, max_points=None)`).
+- Historical sentiment is set to 0 by default unless you pass precomputed sentiment series.
+- Use real historical sentiment for more realistic results if available.
+
+---
+
+## 🧪 Tests & Troubleshooting
+
+- If models fail to load, confirm correct model file names in `models/` and corresponding scaler files in `scalers/`.
+- If you see scaler version mismatch warnings, recreate scalers with your runtime scikit-learn version or match the version used when saving.
+- For TensorFlow retracing warnings: ensure model-building code uses consistent input shapes and avoid rebuilding models in loops.
+- Check logs printed by `app.py` and `scheduler.py` for detailed error traces.
+
+---
+
+## ⏭ Future Enhancements
+
+- **Real-time Data Integration**: Add websocket or market-feed ingestion for live tick-level updates.
+- **Web UI**: Build an interactive dashboard with charts, filters and model explainability.
+- **Model Improvements**: Experiment with Transformers, attention-based models or ensemble methods.
+- **Broader Coverage**: Expand to more sectors, more tickers and multi-exchange support.
+
+---
+
+## 📬 Contact
+
+Questions or suggestions? Reach out:
+
+**Abhinav Neema** — abhinavneema22@gmail.com
+
+---
