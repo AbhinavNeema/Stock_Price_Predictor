@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>QuantumLeap | Stock Predictor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        :root {
+            --background: #0D1117;
+            --surface-1: #161B22;
+            --surface-2: #21262D;
+            --border: #30363D;
+            --text-primary: #C9D1D9;
+            --text-secondary: #8B949E;
+            --accent-blue: #58A6FF;
+            --accent-green: #3FB950;
+            --accent-yellow: #E3B341;
+            --accent-red: #FF5858;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background);
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .dashboard-container {
+            width: 100%;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 24px;
+            background-color: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls-panel {
+            background-color: var(--surface-2);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .controls-panel h2 {
+            font-size: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .select-group { margin-bottom: 20px; }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background-color: var(--background);
+            color: var(--text-primary);
+            font-size: 16px;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%238B949E' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 1rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+        }
+
+        .predict-button {
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: 8px;
+            border: none;
+            background: var(--accent-blue);
+            color: var(--background);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .predict-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(88, 166, 255, 0.2);
+        }
+
+        .predict-button:disabled {
+            background: #30363D;
+            color: var(--text-secondary);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .top-picks-panel { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 24px; }
+
+        .top-picks-panel h3 {
+            font-size: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+        }
+
+        .top-picks-list .loading-state, .top-picks-list .error-state {
+            color: var(--text-secondary);
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        .stock-pick-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .stock-pick-item:hover {
+            background-color: var(--surface-1);
+            border-color: var(--border);
+        }
+
+        .stock-pick-info { display: flex; flex-direction: column; }
+        .stock-pick-info .ticker { font-weight: 600; font-size: 14px; }
+        .stock-pick-info .sector { font-size: 12px; color: var(--text-secondary); }
+        .stock-pick-return { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 4px; }
+
+        .status-panel { margin-top: auto; padding-top: 16px; font-size: 12px; color: var(--text-secondary); text-align: center; }
+
+        .results-panel { display: flex; flex-direction: column; gap: 24px; }
+
+        .price-cards-container { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+        .price-card {
+            background-color: var(--surface-2);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        
+        .price-card h3 {
+            margin-top: 0;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .price-card .price {
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-top: 8px;
+        }
+        
+        .price-card .current { color: var(--accent-blue); }
+        .price-card .predicted-up { color: var(--accent-green); }
+        .price-card .predicted-down { color: var(--accent-red); }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            background-color: var(--surface-2);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        
+        .placeholder {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            flex-direction: column;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .placeholder i { font-size: 48px; margin-bottom: 16px; }
+        
+        .loader {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(33, 38, 45, 0.8);
+            z-index: 10;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 10px;
+            border-radius: 12px;
+        }
+        
+        @media (max-width: 900px) {
+            .dashboard-container { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .dashboard-container { padding: 16px; }
+            .price-cards-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <aside class="controls-panel">
+            <h2><i class="ph-bold ph-sliders"></i>Controls</h2>
+            <div class="select-group">
+                <label for="sectorSelect">Sector</label>
+                <select id="sectorSelect"></select>
+            </div>
+            <div class="select-group">
+                <label for="companySelect">Company</label>
+                <select id="companySelect"></select>
+            </div>
+            <button class="predict-button" id="predictBtn">
+                <i class="ph-bold ph-magic-wand"></i>
+                <span>Predict</span>
+            </button>
+
+            <div class="top-picks-panel">
+                <h3><i class="ph-bold ph-rocket-launch"></i>Today's Top Picks</h3>
+                <div class="top-picks-list" id="topPicksList">
+                    <div class="loading-state">Analyzing markets...</div>
+                </div>
+            </div>
+
+            <div class="status-panel" id="statusPanel">
+                Status: Initializing...
+            </div>
+        </aside>
+
+        <main class="results-panel">
+            <div class="price-cards-container">
+                <div class="price-card">
+                    <h3><i class="ph-bold ph-tag"></i>Current Price</h3>
+                    <p class="price current" id="currentPrice">--</p>
+                </div>
+                <div class="price-card">
+                    <h3><i class="ph-bold ph-chart-line-up"></i>Predicted Price</h3>
+                    <p class="price" id="predictedPrice">--</p>
+                    <p style="margin-top:8px; font-size:12px; color:var(--text-secondary);" id="chanceText">Probability: --</p>
+                </div>
+            </div>
+            <div class="chart-container" id="chartParent">
+                <div class="placeholder" id="placeholder">
+                    <i class="ph-bold ph-chart-bar"></i>
+                    <p>Select a company or click a top pick to view its prediction.</p>
+                </div>
+                <canvas id="priceChart" style="display: none;"></canvas>
+                <div class="loader" id="loader">
+                    <i class="ph-bold ph-spinner-gap ph-spin" style="font-size: 32px;"></i>
+                    <p>Making Prediction...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- Element References ---
+        const sectorSelect = document.getElementById('sectorSelect');
+        const companySelect = document.getElementById('companySelect');
+        const predictBtn = document.getElementById('predictBtn');
+        const loader = document.getElementById('loader');
+        const currentPriceEl = document.getElementById('currentPrice');
+        const predictedPriceEl = document.getElementById('predictedPrice');
+        const chanceTextEl = document.getElementById('chanceText');
+        const chartCanvas = document.getElementById('priceChart');
+        const placeholder = document.getElementById('placeholder');
+        const topPicksList = document.getElementById('topPicksList');
+        const statusPanel = document.getElementById('statusPanel');
+
+        // --- Global State ---
+        let configData = {};
+        let priceChart;
+        const API_BASE_URL = 'http://127.0.0.1:5001';
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // fetch config first, then other dependent resources
+            fetchConfig()
+                .then(() => Promise.all([fetchTopPicks(), fetchDailyPredictionStatus()]))
+                .catch(error => {
+                    console.error("Initialization failed:", error);
+                    placeholder.innerHTML = `<i class="ph-bold ph-warning"></i><p>Could not connect to the backend server. Please ensure it's running and refresh.</p>`;
+                });
+
+            // refresh top picks periodically (every 5 minutes)
+            setInterval(fetchTopPicks, 5 * 60 * 1000);
+        });
+
+        // --- Data Fetching Functions ---
+        async function fetchConfig() {
+            const response = await fetch(`${API_BASE_URL}/config`);
+            if (!response.ok) throw new Error('Failed to fetch config');
+            configData = await response.json();
+            populateSectors();
+        }
+
+        async function fetchTopPicks() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/top-stocks`);
+                if (!response.ok) throw new Error('Failed to fetch top stocks');
+                const json = await response.json();
+                // backend returns { status: ..., top5: [...] } now; fallback to array for backward compatibility
+                const stocks = Array.isArray(json) ? json : (json.top5 || []);
+                populateTopPicks(stocks);
+            } catch (error) {
+                console.error("Failed to load top picks:", error);
+                topPicksList.innerHTML = `<div class="error-state">Could not load recommendations.</div>`;
+            }
+        }
+        
+        async function fetchDailyPredictionStatus() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/daily-predictions`);
+                if (!response.ok) throw new Error('Failed to fetch status');
+                const data = await response.json();
+                const lastUpdated = data.status && data.status.last_updated ? new Date(data.status.last_updated).toLocaleString() : 'N/A';
+                statusPanel.innerHTML = `Predictions last updated: <br> ${lastUpdated}`;
+            } catch (error) {
+                console.error("Failed to load status:", error);
+                statusPanel.textContent = "Could not get prediction status.";
+            }
+        }
+
+        // --- UI Population Functions ---
+        function populateSectors() {
+            sectorSelect.innerHTML = '<option value="">-- Choose a Sector --</option>';
+            Object.keys(configData).sort().forEach(sector => {
+                const option = document.createElement('option');
+                option.value = sector;
+                option.textContent = sector;
+                sectorSelect.appendChild(option);
+            });
+            sectorSelect.onchange = populateCompanies;
+            populateCompanies(); // Initial population (may be empty)
+        }
+
+        function populateCompanies() {
+            const selectedSector = sectorSelect.value;
+            companySelect.innerHTML = '<option value="">-- Choose a Company --</option>';
+            if (selectedSector && configData[selectedSector]) {
+                const companies = configData[selectedSector];
+                // companies is an object { 'TCS.NS': 'TCS', ... }
+                const sortedTickers = Object.keys(companies).sort((a, b) => companies[a].localeCompare(companies[b]));
+                
+                sortedTickers.forEach(ticker => {
+                    const option = document.createElement('option');
+                    option.value = ticker; // full ticker like 'TCS.NS'
+                    option.textContent = companies[ticker]; // display short name like 'TCS'
+                    companySelect.appendChild(option);
+                });
+            }
+        }
+
+        function populateTopPicks(stocks) {
+            topPicksList.innerHTML = ''; // Clear loading state
+            if (!stocks || stocks.length === 0) {
+                topPicksList.innerHTML = `<div class="loading-state">No recommendations available.</div>`;
+                return;
+            }
+
+            stocks.forEach(stock => {
+                const item = document.createElement('div');
+                item.className = 'stock-pick-item';
+
+                // handle new and legacy fields
+                const retPct = stock.predictedReturnPercent !== undefined ? +stock.predictedReturnPercent : (stock.predictedReturn !== undefined ? +stock.predictedReturn * 100 : 0);
+                const chancePct = stock.predictedChancePercent !== undefined ? +stock.predictedChancePercent : (stock.predictedChance !== undefined ? +stock.predictedChance * 100 : null);
+
+                const isUp = retPct > 0;
+                const returnColor = isUp ? 'var(--accent-green)' : 'var(--accent-red)';
+                const icon = isUp ? '<i class="ph-bold ph-caret-up"></i>' : '<i class="ph-bold ph-caret-down"></i>';
+
+                // Display friendly name if available in configData, else show ticker
+                const displayName = (configData[stock.sector] && configData[stock.sector][stock.ticker]) || stock.ticker;
+
+                item.innerHTML = `
+                    <div class="stock-pick-info">
+                        <span class="ticker">${displayName}</span>
+                        <span class="sector">${stock.sector}</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+                        <div class="stock-pick-return" style="color: ${returnColor};">
+                            ${icon}
+                            <span>${retPct.toFixed(2)}%</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-secondary);">
+                            ${chancePct !== null && chancePct !== undefined ? `P(hit): ${chancePct.toFixed(1)}%` : ''}
+                        </div>
+                    </div>
+                `;
+
+                // Add click event to auto-predict
+                item.addEventListener('click', () => {
+                    sectorSelect.value = stock.sector;
+                    populateCompanies(); // repopulate company list for that sector
+                    // set company select to the ticker (full string like 'TCS.NS')
+                    companySelect.value = stock.ticker;
+                    // trigger prediction
+                    predictBtn.click();
+                });
+
+                topPicksList.appendChild(item);
+            });
+        }
+
+        // --- Main Prediction Logic ---
+        predictBtn.addEventListener('click', async () => {
+            const sector = sectorSelect.value;
+            const ticker = companySelect.value;
+
+            if (!sector || !ticker) {
+                alert("Please select both a sector and a company.");
+                return;
+            }
+
+            // --- Set UI to loading state ---
+            placeholder.style.display = 'none';
+            chartCanvas.style.display = 'none';
+            loader.style.display = 'flex';
+            predictBtn.disabled = true;
+            predictBtn.querySelector('span').textContent = 'Loading...';
+            currentPriceEl.textContent = '--';
+            predictedPriceEl.textContent = '--';
+            chanceTextEl.textContent = 'Probability: --';
+            predictedPriceEl.className = 'price'; // Reset classes
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/predict`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sector, ticker })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayResults(data);
+                } else {
+                    throw new Error(data.error || 'An unknown error occurred.');
+                }
+            } catch (error) {
+                console.error("Prediction failed:", error);
+                placeholder.innerHTML = `<i class="ph-bold ph-warning"></i><p>Prediction failed: ${error.message}</p>`;
+                placeholder.style.display = 'flex';
+            } finally {
+                // --- Reset UI from loading state ---
+                loader.style.display = 'none';
+                predictBtn.disabled = false;
+                predictBtn.querySelector('span').textContent = 'Predict';
+            }
+        });
+
+        function displayResults(data) {
+            // expect data.current_price and data.predicted_price (numbers)
+            currentPriceEl.textContent = data.current_price !== undefined ? `₹ ${data.current_price.toFixed(2)}` : '--';
+            predictedPriceEl.textContent = data.predicted_price !== undefined ? `₹ ${data.predicted_price.toFixed(2)}` : '--';
+            
+            // Set predicted price color based on change
+            if (data.predicted_price !== undefined && data.current_price !== undefined) {
+                predictedPriceEl.classList.toggle('predicted-up', data.predicted_price > data.current_price);
+                predictedPriceEl.classList.toggle('predicted-down', data.predicted_price <= data.current_price);
+            }
+
+            // Show probability if backend provided it (predictedChancePercent) or legacy field
+            const chance = data.predictedChancePercent !== undefined ? +data.predictedChancePercent : (data.predictedChance !== undefined ? +data.predictedChance : null);
+            if (chance !== null && chance !== undefined) {
+                chanceTextEl.textContent = `Probability: ${chance.toFixed(1)}%`;
+            } else {
+                chanceTextEl.textContent = `Probability: --`;
+            }
+
+            // Render chart if history exists
+            if (data.history && data.history.labels && data.history.prices) {
+                renderChart(data.history);
+            } else {
+                placeholder.style.display = 'flex';
+                chartCanvas.style.display = 'none';
+            }
+        }
+
+        function renderChart(history) {
+            chartCanvas.style.display = 'block';
+            placeholder.style.display = 'none';
+            
+            if (priceChart) {
+                priceChart.destroy();
+            }
+
+            const ctx = chartCanvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, chartCanvas.offsetHeight);
+            gradient.addColorStop(0, 'rgba(88, 166, 255, 0.3)');
+            gradient.addColorStop(1, 'rgba(88, 166, 255, 0)');
+
+            const accentBlue = getComputedStyle(document.body).getPropertyValue('--accent-blue').trim();
+            const textSecondary = getComputedStyle(document.body).getPropertyValue('--text-secondary').trim();
+            
+            priceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: history.labels,
+                    datasets: [{
+                        label: 'Historical Price',
+                        data: history.prices,
+                        borderColor: accentBlue,
+                        backgroundColor: gradient,
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            ticks: { color: textSecondary, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        },
+                        y: {
+                            ticks: { color: textSecondary, callback: value => `₹ ${value}` },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => `Price: ₹ ${context.parsed.y.toFixed(2)}`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
