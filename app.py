@@ -1,8 +1,11 @@
 import threading
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from gunicorn.app.wsgiapp import WSGIApplication
 
 # Import functions and the shared state object from the other modules
+# Assuming these files are in the same directory for deployment on Render.
 from models import load_all_best_models, SECTOR_MODELS
 from scheduler import setup_scheduler, run_daily_predictions, state
 from backtest import run_backtest_for_sector
@@ -177,5 +180,17 @@ def run_now():
     threading.Thread(target=run_daily_predictions, daemon=True).start()
     return jsonify({"message": "Prediction job started in background."}), 202
 
+# The following lines are for deployment on Render, they are not needed when running locally
+# and are a recommended alternative to `if __name__ == '__main__':`.
+# They instruct Gunicorn to use the Flask app object.
+class GunicornApp(WSGIApplication):
+    def init(self, parser, opts, args):
+        return {
+            'bind': f"0.0.0.0:{os.environ.get('PORT', '5001')}",
+            'workers': 1
+        }
+    def load(self):
+        return app
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5001, use_reloader=False)
+    GunicornApp().run()
