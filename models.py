@@ -1,6 +1,5 @@
 import os
 import joblib
-import traceback
 from tensorflow.keras.models import load_model
 
 SECTOR_MODELS = {}
@@ -44,16 +43,11 @@ def load_all_best_models():
         model_path, scaler_path = config['model_path'], config['scaler_path']
         if os.path.exists(model_path) and os.path.exists(scaler_path):
             try:
-                # Use compile=False for faster loading when not retraining
-                model = load_model(model_path, compile=False)
+                model = load_model(model_path)
                 scaler = joblib.load(scaler_path)
-                
-                # Dynamically determine feature and target columns
                 training_columns = list(scaler.feature_names_in_)
                 feature_cols = [col for col in training_columns if '_Return' not in col]
                 target_cols = [col for col in training_columns if '_Return' in col]
-
-                # Store all relevant info in the global dictionary
                 SECTOR_MODELS[config['sector_name']] = {
                     'model': model,
                     'scaler': scaler,
@@ -62,10 +56,8 @@ def load_all_best_models():
                     'training_columns': training_columns,
                     **config
                 }
-                print(f"--- ✅ Loaded BEST model for {config['sector_name']} sector ---")
+                print(f"Loaded BEST model for {config['sector_name']} sector")
             except Exception as e:
-                print(f"--- ❌ Failed loading model/scaler for {config['sector_name']}: {e} ---")
-                traceback.print_exc()
+                print(f"Failed loading model/scaler for {config['sector_name']}: {e}")
         else:
-            print(f"--- ⚠️ Model/scaler not found for {config['sector_name']} (paths: {model_path}, {scaler_path}) ---")
-
+            print(f"Model/scaler not found for {config['sector_name']} (paths: {model_path}, {scaler_path})")
