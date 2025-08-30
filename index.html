@@ -253,6 +253,12 @@
                 <i class="ph-bold ph-magic-wand"></i>
                 <span>Predict</span>
             </button>
+            <!-- inside <aside class="controls-panel">, just after the Predict button -->
+            <button class="predict-button" id="runNowBtn" style="margin-top:12px; background: var(--accent-green);">
+                <i class="ph-bold ph-play-circle"></i>
+                <span>Run Daily Predictions Now</span>
+            </button>
+
 
             <div class="top-picks-panel">
                 <h3><i class="ph-bold ph-rocket-launch"></i>Today's Top Picks</h3>
@@ -293,6 +299,28 @@
     </div>
 
     <script>
+        const runNowBtn = document.getElementById('runNowBtn');
+
+    // --- Run Now Handler ---
+    runNowBtn.addEventListener('click', async () => {
+        statusPanel.textContent = "Status: Running daily predictions...";
+        runNowBtn.disabled = true;
+        runNowBtn.querySelector('span').textContent = "Running...";
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/run-now`, { method: "POST" });
+            const data = await response.json();
+            alert("Run-now triggered: " + (data.status || "done"));
+            await fetchDailyPredictionStatus(); // refresh status panel
+        } catch (err) {
+            console.error("Error triggering run-now:", err);
+            alert("Error triggering run-now: " + err.message);
+            statusPanel.textContent = "Status: Run-now failed.";
+        } finally {
+            runNowBtn.disabled = false;
+            runNowBtn.querySelector('span').textContent = "Run Daily Predictions Now";
+        }
+    });
         // --- Element References ---
         const sectorSelect = document.getElementById('sectorSelect');
         const companySelect = document.getElementById('companySelect');
@@ -572,6 +600,7 @@
                 }
             });
         }
+        
     </script>
 </body>
 </html>
