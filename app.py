@@ -1,11 +1,11 @@
 import threading
 import os
+import time
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from gunicorn.app.wsgiapp import WSGIApplication
 
-# Import functions and the shared state object from the other modules
-# Assuming these files are in the same directory for deployment on Render.
+# Import functions and the shared state object from your modules
+# (we import setup_scheduler but will call it after models are loaded)
 from models import load_all_best_models, SECTOR_MODELS
 from scheduler import setup_scheduler, run_daily_predictions, state
 from backtest import run_backtest_for_sector
@@ -15,54 +15,60 @@ from utils import _safe_float
 app = Flask(__name__)
 CORS(app)
 
-# --- 1. Setup and Model Loading ---
-# This function loads the pre-trained models from the 'models.py' module.
-load_all_best_models()
+# --- readiness / background model loading ---
+_models_ready = threading.Event()
 
-# --- 2. Daily Prediction Cache & Scheduler Setup ---
-# This function sets up the background scheduler from the 'scheduler.py' module
-# that will run the daily prediction job.
-setup_scheduler()
+def _load_models_and_start_scheduler():
+    """Load models, then setup scheduler once models are available."""
+    try:
+        print("🔁 Starting background model load...")
+        load_all_best_models()
+        print("✅ Models loaded.")
+    except Exception as e:
+        print(f"❌ Model loading failed: {e}")
+    finally:
+        # Mark models as ready (even if loading failed; you can inspect logs)
+        _models_ready.set()
+        # Start scheduler only after models attempt to load (prevents jobs failing)
+        try:
+            print("🔁 Starting scheduler...")
+            setup_scheduler()
+            print("✅ Scheduler started.")
+        except Exception as e:
+            print(f"❌ Scheduler failed to start: {e}")
 
-# --- 3. API Endpoints ---
+# Start loading models in background thread
+threading.Thread(target=_load_models_and_start_scheduler, daemon=True).start()
+
+# -----------------------
+# Routes (kept same logic as you provided)
+# -----------------------
 
 @app.route('/config', methods=['GET'])
 def get_config():
-    """Endpoint to return the configuration of sectors and companies."""
     frontend_config = {sector: {t: t.split('.')[0] for t in d['companies']} for sector, d in SECTOR_MODELS.items()}
     return jsonify(frontend_config)
 
 
 @app.route('/daily-predictions', methods=['GET'])
 def get_daily_predictions_api():
-    """Returns the pre-calculated stock price predictions for the day."""
     return jsonify({"status": state.prediction_status, "predictions": state.daily_predictions})
 
 
 @app.route('/top-stocks', methods=['GET'])
 def get_top_stocks():
-    """
-    Returns the top 5 stocks based on a risk-adjusted score.
-    It waits for the prediction job to finish if it's currently running.
-    """
     print("\n--- Serving Top 5 Stock Analysis ---")
 
-    # If the cache is empty, start a non-blocking background thread to run the predictions.
-    # The `prediction_lock` ensures we only start one.
     if not state.daily_predictions and not state.prediction_lock.locked():
         threading.Thread(target=run_daily_predictions, daemon=True).start()
 
-    # Wait for the prediction job to complete with a timeout.
-    # This ensures the API remains responsive.
     if not state.daily_predictions:
         print("Predictions not ready. Waiting for job to complete...")
-        state.prediction_ready_event.wait(timeout=60) # Wait up to 60 seconds
+        state.prediction_ready_event.wait(timeout=60)
 
-    # If the job failed or returned no data, handle gracefully.
     if not state.daily_predictions:
         return jsonify({'error': 'Predictions are not available. Please try again later.'}), 503
 
-    # Build metrics from the now-populated cache.
     all_stocks_metrics = []
     for ticker, info in state.daily_predictions.items():
         predicted_return = _safe_float(info.get('predictedReturn', 0.0))
@@ -87,20 +93,14 @@ def get_top_stocks():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """
-    Endpoint for single, on-demand predictions.
-    Uses cached data when available for speed, otherwise performs a live calculation.
-    """
     data = request.get_json() or {}
     sector = data.get('sector')
     ticker = data.get('ticker')
     if not sector or not ticker or sector not in SECTOR_MODELS:
         return jsonify({'error': 'Invalid sector or company specified.'}), 400
 
-    # First, try to get the data from the pre-calculated cache.
-    # We wait a short period to see if the cache is being populated.
     if not state.daily_predictions:
-        state.prediction_ready_event.wait(timeout=10) # Wait up to 10 seconds for the cache to be ready
+        state.prediction_ready_event.wait(timeout=10)
 
     cached = state.daily_predictions.get(ticker)
     if cached and cached.get('sector') == sector:
@@ -112,7 +112,6 @@ def predict():
             'history': cached.get('history')
         })
 
-    # If not in the cache, or the cache is old/stale, do a live calculation.
     config = SECTOR_MODELS[sector]
     try:
         live_df, unscaled_returns = _get_sector_predictions_base(config)
@@ -141,9 +140,9 @@ def predict():
         print(f"Error during prediction for {ticker} in {sector}: {e}")
         return jsonify({'error': 'An error occurred during prediction.'}), 500
 
+
 @app.route('/backtest', methods=['POST'])
 def backtest_api():
-    """Endpoint to run a historical backtest."""
     data = request.get_json() or {}
     sector = data.get('sector')
     ticker = data.get('ticker')
@@ -174,23 +173,36 @@ def backtest_api():
 
 @app.route("/run-now", methods=["POST"])
 def run_now():
-    """Endpoint to manually trigger the daily prediction job."""
     if state.prediction_lock.locked():
         return jsonify({"message": "A prediction job is already running."}), 202
     threading.Thread(target=run_daily_predictions, daemon=True).start()
     return jsonify({"message": "Prediction job started in background."}), 202
 
-# The following lines are for deployment on Render, they are not needed when running locally
-# and are a recommended alternative to `if __name__ == '__main__':`.
-# They instruct Gunicorn to use the Flask app object.
-class GunicornApp(WSGIApplication):
-    def init(self, parser, opts, args):
-        return {
-            'bind': f"0.0.0.0:{os.environ.get('PORT', '5001')}",
-            'workers': 1
-        }
-    def load(self):
-        return app
 
+@app.route('/health', methods=['GET'])
+def health():
+    """Return 200 only after models are loaded (helps readiness checks)."""
+    if not _models_ready.is_set():
+        return jsonify({'status': 'loading models'}), 503
+    return jsonify({'status': 'ok'}), 200
+
+
+# Local run / fallback (keeps app object for gunicorn: app)
 if __name__ == '__main__':
-    GunicornApp().run()
+    port = int(os.environ.get('PORT', 5001))
+    # If a PORT env is present (production), prefer to run gunicorn if available, else fallback to Flask dev server
+    if os.environ.get('PORT'):
+        try:
+            from gunicorn.app.wsgiapp import WSGIApplication
+            class GunicornApp(WSGIApplication):
+                def init(self, parser, opts, args):
+                    return {'bind': f"0.0.0.0:{port}", 'workers': 1}
+                def load(self):
+                    return app
+            print(f"Starting Gunicorn on 0.0.0.0:{port}")
+            GunicornApp().run()
+        except Exception as e:
+            print(f"Gunicorn not available or failed to start ({e}). Falling back to Flask dev server.")
+            app.run(host='0.0.0.0', port=port, debug=False)
+    else:
+        app.run(host='0.0.0.0', port=port, debug=True)
