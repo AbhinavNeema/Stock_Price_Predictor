@@ -37,6 +37,7 @@ def run_daily_predictions():
         all_predictions = {}
         for sector_name, config in SECTOR_MODELS.items():
             print(f"Processing sector for daily predictions: {sector_name}...")
+            # This function call will now produce much more detailed logs
             live_df, unscaled_returns = _get_sector_predictions_base(config)
             if live_df is None or unscaled_returns is None:
                 print(f"  - Could not get data for sector {sector_name}. Skipping.")

@@ -1,79 +1,100 @@
-import math
-import time
-import numpy as np
-import pandas as pd
 import yfinance as yf
+import pandas as pd
+import numpy as np
 import pandas_ta as ta
-
-from models import SECTOR_MODELS
-from utils import _safe_float, get_live_sentiment
+import traceback
+from scipy.stats import norm
 
 def _get_sector_predictions_base(config):
     """
-    Base function to download data, process features, and run the model.
-    Returns the live data dataframe and the unscaled predicted returns.
+    Fetches live data, calculates features, and returns predictions for a sector.
+    This version includes robust error logging to diagnose silent failures.
     """
-    try:
-        end_date = pd.to_datetime('today')
-        start_date = end_date - pd.Timedelta(days=180)
-        live_data_raw = yf.download(config['features_to_download'], start=start_date, end=end_date, progress=False, threads=False)
-        if 'Close' in live_data_raw:
-            live_df = live_data_raw['Close'].copy()
-        else:
-            live_df = live_data_raw.copy()
-        if config.get('rename_map'):
-            live_df.rename(columns=config['rename_map'], inplace=True)
-        live_df.ffill(inplace=True)
+    companies = config.get('companies', [])
+    model = config.get('model')
+    scaler = config.get('scaler')
+    features = config.get('features', [])
 
-        for stock in config['companies']:
-            if stock not in live_df.columns:
-                print(f"  - {stock} not present in downloaded data for {config['sector_name']}")
-                continue
-            try:
-                live_df[f'{stock}_SMA_20'] = ta.sma(live_df[stock], length=20)
-                live_df[f'{stock}_RSI_14'] = ta.rsi(live_df[stock], length=14)
-            except Exception:
-                pass
-            print(f"  Fetching sentiment for {stock}...")
-            live_df[f'{stock}_Sentiment'] = get_live_sentiment(stock)
-            live_df[f'{stock}_Return'] = 0.0
-            time.sleep(1)
+    if not all([companies, model, scaler, features]):
+        print(f"  - ❌ ERROR: Configuration for sector is incomplete. Missing model, scaler, companies, or features.")
+        return None, None
+
+    # --- ADDED: This entire try...except block provides detailed debugging ---
+    try:
+        print(f"  - Attempting to download data for: {companies}")
+        end_date = pd.Timestamp.now(tz='UTC')
+        start_date = end_date - pd.Timedelta(days=365)
+        
+        df = yf.download(companies, start=start_date, end=end_date, progress=False)
+        
+        if df.empty:
+            print(f"  - ❌ ERROR: yfinance returned an empty DataFrame for {companies}. Check if ticker symbols are valid.")
+            return None, None
+            
+        live_df = df['Adj Close'].copy().dropna(how='all')
+        
+        if len(live_df) < 60:
+             print(f"  - ❌ ERROR: Not enough historical data for {companies} to make a prediction. (Need at least 60 days, have {len(live_df)})")
+             return None, None
+
+        print("  - Calculating technical indicators...")
+        # NOTE: Ensure the features in your config match the indicators calculated here.
+        # This is a common source of errors.
+        for ticker in companies:
+            if ticker in live_df:
+                live_df.ta.rsi(close=live_df[ticker], length=14, append=True)
+                live_df.ta.ema(close=live_df[ticker], length=50, append=True)
+                # Add any other indicators your model requires here
 
         live_df.dropna(inplace=True)
-        if len(live_df) < 60:
+
+        if live_df.empty:
+            print("  - ❌ ERROR: DataFrame became empty after calculating indicators and dropping NaNs. There might be issues with the source data.")
             return None, None
 
-        last_60_days = live_df.tail(60)
-        ordered_data = last_60_days[config['training_columns']]
-        scaled_data = config['scaler'].transform(ordered_data)
-        df_scaled = pd.DataFrame(scaled_data, columns=ordered_data.columns)
-        X_pred = np.array([df_scaled[config['feature_cols']].values])
-        all_predicted_returns_scaled = config['model'].predict(X_pred)
-        dummy_array = np.zeros((1, len(config['training_columns'])))
-        target_indices = [config['training_columns'].index(t) for t in config['target_cols']]
-        for i, idx in enumerate(target_indices):
-            dummy_array[0, idx] = all_predicted_returns_scaled[0, i]
+        print("  - Scaling features and making prediction...")
+        latest_features_df = live_df[features]
+        # Ensure columns are in the correct order, another common error source
+        latest_features_df = latest_features_df[features] 
+        
+        latest_features = latest_features_df.iloc[-1:].values
+        scaled_features = scaler.transform(latest_features)
+        
+        predicted_scaled_returns = model.predict(scaled_features)
+        
+        # This part is tricky and depends on how your scaler was trained.
+        # This assumes the return column was the first one.
+        pad_width = len(features) - predicted_scaled_returns.shape[1]
+        padded_prediction = np.concatenate([predicted_scaled_returns, np.zeros((predicted_scaled_returns.shape[0], pad_width))], axis=1)
+        unscaled_returns = scaler.inverse_transform(padded_prediction)[:, 0]
 
-        unscaled_predictions = config['scaler'].inverse_transform(dummy_array)
-        unscaled_returns = unscaled_predictions[0, target_indices]
         return live_df, unscaled_returns
+
     except Exception as e:
-        print(f"  - Error in _get_sector_predictions_base for {config.get('sector_name','unknown')}: {e}")
+        # This will catch any unexpected error and print the full traceback to your logs
+        print(f"  - ❌ CRITICAL ERROR in _get_sector_predictions_base for sector '{config.get('name', 'Unknown')}': {e}")
+        traceback.print_exc() 
         return None, None
 
 def estimate_probability_of_reaching(predicted_return, returns_series):
-    """Estimate probability that next-day return >= predicted_return."""
-    try:
-        rs = returns_series.dropna()
-        if rs.empty:
-            return 0.0
-        mu = float(rs.mean())
-        sigma = float(rs.std())
-        if sigma <= 0:
-            return 1.0 if mu >= predicted_return else 0.0
-        z = (predicted_return - mu) / sigma
-        cdf = 0.5 * (1 + math.erf(z / math.sqrt(2)))
-        prob = 1.0 - cdf
-        return max(0.0, min(1.0, prob))
-    except Exception:
-        return 0.0
+    """
+    Estimates the probability of a stock reaching its predicted return
+    based on its recent historical volatility.
+    """
+    if returns_series.empty or returns_series.std() == 0:
+        return 0.5 # Default to 50% chance if no volatility data is available
+    
+    mean_return = returns_series.mean()
+    std_dev = returns_series.std()
+    
+    # Calculate the Z-score, which measures how many standard deviations the predicted return is from the mean.
+    z_score = (predicted_return - mean_return) / std_dev
+    
+    # Use the cumulative distribution function (CDF) of a normal distribution
+    # to find the probability of a value being less than or equal to the Z-score.
+    if predicted_return >= mean_return:
+        # Probability of achieving a return greater than or equal to the prediction
+        return 1 - norm.cdf(z_score)
+    else:
+        # Probability of achieving a return less than or equal to the prediction
+        return norm.cdf(z_score)
