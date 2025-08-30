@@ -1,3 +1,5 @@
+This file contains modern, stable package versions compatible with TensorFlow 2.16+
+Last Updated: August 30, 2025
 absl-py==2.1.0
 APScheduler==3.10.4
 astunparse==1.6.3
@@ -7,42 +9,59 @@ charset-normalizer==3.3.2
 click==8.1.7
 Flask==3.0.3
 Flask-Cors==4.0.1
-flatbuffers==23.5.26
+flatbuffers==2.4.1
 
-gast==0.4.0
+Updated gast to a version compatible with modern TensorFlow
+gast==0.5.4
 google-pasta==0.2.0
-grpcio==1.60.0
+grpcio==1.64.0
 gunicorn==22.0.0
-h5py==3.10.0
+
+Updated h5py for compatibility
+h5py==3.11.0
 itsdangerous==2.1.2
 Jinja2==3.1.3
-keras==2.13.1
+
+Updated Keras to the modern version 3
+keras==3.4.1
 libclang==18.1.1
-Markdown==3.5.1
-MarkupSafe==2.1.3
-ml-dtypes==0.2.0
+Markdown==3.6
+MarkupSafe==2.1.5
+
+Updated ml-dtypes for new numpy/tensorflow versions
+ml-dtypes==0.3.2
+
+Updated numpy to a version compatible with modern TensorFlow/Pandas
 numpy==1.26.4
 opt-einsum==3.3.0
-packaging==23.2
-pandas==2.1.4
+packaging==24.0
+
+Updated pandas to a recent stable version
+pandas==2.2.2
 pandas-ta==0.3.14b0
-protobuf==4.25.1
-python-dateutil==2.8.2
+
+Updated protobuf for modern TensorFlow
+protobuf==4.25.3
+python-dateutil==2.9.0
 python-dotenv==1.0.1
 pytz==2024.1
-requests==2.31.0
-rich==13.7.0
-scikit-learn==1.4.2
-scipy==1.11.4
+requests==2.32.0
+rich==13.7.1
+
+Updated scikit-learn to a recent stable version
+scikit-learn==1.5.0
+scipy==1.13.1
 six==1.16.0
 termcolor==2.4.0
-tensorflow==2.13.0
-threadpoolctl==3.2.0
-typing_extensions==4.9.0
+
+Updated TensorFlow to a recent stable version
+tensorflow==2.16.1
+threadpoolctl==3.5.0
+typing_extensions==4.12.2
 tzdata==2024.1
-urllib3==2.1.0
+urllib3==2.2.1
 vaderSentiment==3.3.2
-Werkzeug==3.0.1
-wrapt==1.14.1
-yfinance==0.2.37
+Werkzeug==3.0.3
+wrapt==1.16.0
+yfinance==0.2.40
 
