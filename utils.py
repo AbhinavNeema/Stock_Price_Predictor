@@ -6,7 +6,7 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from dotenv import load_dotenv
 analyzer = SentimentIntensityAnalyzer()
 load_dotenv()
-NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+NEWS_API_KEY = "f4720ca914da4e1eba03a3f520aa17f7"
 
 def _safe_float(x, default=0.0):
     """Convert x to a plain Python float safe for JSON; replace NaN/inf/None with default."""

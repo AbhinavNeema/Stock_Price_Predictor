@@ -14,7 +14,7 @@ eggs/
 .installed.cfg
 *.egg
 # Environments
-.env
+
 .venv/
 env/
 venv/
