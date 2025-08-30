@@ -3,7 +3,7 @@ import time
 import numpy as np
 import requests
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-
+from dotenv import load_dotenv
 analyzer = SentimentIntensityAnalyzer()
 load_dotenv()
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
